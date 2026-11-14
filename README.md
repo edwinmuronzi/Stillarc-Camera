@@ -314,3 +314,7 @@ Selecting another optical lens now exits the dedicated wide-camera Focus Lens mo
 Log HEVC uses a bounded live capture queue and disables encoder frame reordering. The single monitor checks display readiness before rendering, limits its output-buffer pool, and no longer inserts a delay when valid Log recording buffers replace preview buffers. Selected recording resolution, bitrate and 10-bit Log data are retained. On iOS 27 the writer explicitly preserves the source Log transfer tag.
 
 See [native checks and limits](Validation/1.3.8/README.md).
+
+## 1.3.9 · native colour interchange
+
+Look studio → Share colour with Studio now produces a `.stillarclook` package. Import it in Studio’s Film tools. Camera’s LUT importer also accepts Studio `.stillarclook` files, selects the portable display-sRGB colour and Standard style. Use Standard gamma for the shared colour. Studio’s spatial effects, source-specific edits and camera exposure/focus settings do not transfer. Camera captures/lens/Log processing are unchanged by this companion update. Ordinary `.cube` import remains supported.

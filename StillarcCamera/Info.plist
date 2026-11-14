@@ -2,14 +2,38 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>Stillarc Camera preset</string>
-            <key>CFBundleURLSchemes</key>
-            <array><string>stillarc</string><string>framelinepro</string></array>
-        </dict>
-    </array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Stillarc Camera preset</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>stillarc</string>
+				<string>framelinepro</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.stillarc.shared-look</string>
+			<key>UTTypeDescription</key>
+			<string>Stillarc shared look</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.json</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>stillarclook</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

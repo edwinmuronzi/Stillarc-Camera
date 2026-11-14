@@ -2904,6 +2904,23 @@ final class CameraStore {
     }
 
     func importLUT(from url: URL) {
+        if url.pathExtension.lowercased()=="stillarclook" {
+            guard !isRecording else {showToast("Stop recording before importing a shared look.");return}
+            let directory=lutDirectory()
+            Task {do {
+                let lut=try await Task.detached(priority:.utility) {() throws ->CubeLUT in
+                    let package=try StillarcLookPackage.read(url),lut=CubeLUT(id:UUID(),name:package.name,size:package.dimension,data:package.cube,isBuiltIn:false)
+                    let text=try CameraColorShare.cubeText(package),saved=ImportedLUT(id:lut.id,name:lut.name,text:text)
+                    try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+                    try JSONEncoder().encode(saved).write(to:directory.appendingPathComponent(lut.id.uuidString),options:.atomic)
+                    return lut
+                }.value
+                guard !isRecording else {showToast("The look was imported. Select it after recording.");luts.append(lut);return}
+                luts.append(lut);look = .standard;selectedLUT=lut;lutIntensity=1;monitorLUT=true
+                showToast("Imported shared colour. Use Standard gamma; texture and camera controls stay separate.")
+            } catch {showToast(error.localizedDescription)}}
+            return
+        }
         let accessed = url.startAccessingSecurityScopedResource()
 
         defer {

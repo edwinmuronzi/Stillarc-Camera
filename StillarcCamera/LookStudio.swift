@@ -462,11 +462,11 @@ struct LookStudio: View {
                 else {Button(colourSharing ? "Preparing colour look…":"Share colour with Studio",systemImage:"square.and.arrow.up") {
                     guard !colourSharing else {return};colourSharing=true;colourShareError=nil
                     let style=store.styleParams,monitor=store.monitorLUT,lut=store.monitorLUT ? store.selectedLUT:nil,intensity=store.lutIntensity
-                    Task {do {let url=try await Task.detached(priority:.utility){try CameraColorShare.export(style:style,lut:lut,intensity:intensity)}.value;if store.styleParams==style && store.monitorLUT==monitor && store.lutIntensity==intensity && (!monitor || store.selectedLUT?.id==lut?.id) {sharedColour=url} else {try? FileManager.default.removeItem(at:url.deletingLastPathComponent())}} catch {colourShareError=error.localizedDescription};colourSharing=false}
+                    Task {do {let url=try await Task.detached(priority:.utility){try CameraColorShare.exportNative(style:style,lut:lut,intensity:intensity)}.value;if store.styleParams==style && store.monitorLUT==monitor && store.lutIntensity==intensity && (!monitor || store.selectedLUT?.id==lut?.id) {sharedColour=url} else {try? FileManager.default.removeItem(at:url.deletingLastPathComponent())}} catch {colourShareError=error.localizedDescription};colourSharing=false}
                 }.disabled(colourSharing)}
             }.font(.caption).foregroundStyle(Theme.gold)
             if let colourShareError {Text(colourShareError).font(.caption).foregroundStyle(.red)}
-            Text("Colour-only .cube look for Studio → Film → Import. Grain, halos, framing, HDR and camera settings stay here. Prepare a new file after changing the look.").font(.caption2).foregroundStyle(.secondary)
+            Text("Native .stillarclook colour for Studio → Film → Import. Grain, halos, framing, HDR and camera settings stay here. Prepare a new file after changing the look.").font(.caption2).foregroundStyle(.secondary)
 
             VStack(spacing: 8) {
                 HStack(spacing: 10) {

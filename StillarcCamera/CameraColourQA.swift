@@ -20,6 +20,14 @@ nonisolated enum CameraColourQA {
         try text.write(to:docs.appendingPathComponent("camera-shared-qa.cube"),atomically:true,encoding:.utf8)
         let vectors:[String:Any]=["rgb":rgb,"expected":Array(expected.prefix(3))]
         try JSONSerialization.data(withJSONObject:vectors,options:.prettyPrinted).write(to:docs.appendingPathComponent("camera-shared-vectors.json"),options:.atomic)
+        let packageURL=try CameraColorShare.exportNative(style:style,lut:nil,intensity:1)
+        defer {try? FileManager.default.removeItem(at:packageURL.deletingLastPathComponent())}
+        let native=try StillarcLookPackage.read(packageURL),portable=CubeLUT.parse(text:try CameraColorShare.cubeText(native),name:"Native")!
+        let portableSample=portable.sample(r:rgb[0],g:rgb[1],b:rgb[2])
+        try check(zip([portableSample.0,portableSample.1,portableSample.2],channels).allSatisfy {abs($0-$1)<0.00001},"Native package changed Camera colour")
+        try Data(contentsOf:packageURL).write(to:docs.appendingPathComponent("camera-native-qa.stillarclook"),options:.atomic)
+        let studioNative=docs.appendingPathComponent("studio-native-qa.stillarclook")
+        if FileManager.default.fileExists(atPath:studioNative.path) {let incoming=try StillarcLookPackage.read(studioNative);try check(incoming.payload("studio") != nil,"Studio package lost native payload");_ = try CameraColorShare.cubeText(incoming)}
         var incoming=false
         let studio=docs.appendingPathComponent("studio-shared-qa.cube")
         if FileManager.default.fileExists(atPath:studio.path) {
@@ -29,7 +37,7 @@ nonisolated enum CameraColourQA {
             try check(zip([got.0,got.1,got.2],expected).allSatisfy {abs(Double($0)-$1)<0.015},"Studio-to-Camera colour mismatch")
             incoming=true
         }
-        return try JSONSerialization.data(withJSONObject:["passed":true,"cameraExport":true,"studioImport":incoming,"version":Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "unknown"],options:.prettyPrinted)
+        return try JSONSerialization.data(withJSONObject:["passed":true,"nativePackage":true,"cameraExport":true,"studioImport":incoming,"version":Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "unknown"],options:.prettyPrinted)
     }
     @MainActor static func write() async {
         let docs=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0],report=docs.appendingPathComponent("camera-colour-verification.json")

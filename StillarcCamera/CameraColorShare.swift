@@ -26,4 +26,16 @@ nonisolated enum CameraColorShare {
         }
         try text.write(to:url,atomically:true,encoding:.utf8);success=true;return url
     }
+    static func cubeText(_ package:StillarcLookPackage) throws ->String {
+        var text="TITLE \"Stillarc shared colour\"\nLUT_3D_SIZE \(package.dimension)\nDOMAIN_MIN 0 0 0\nDOMAIN_MAX 1 1 1\n"
+        let values=package.cube.withUnsafeBytes {Array($0.bindMemory(to:Float.self))}
+        for i in stride(from:0,to:values.count,by:4) {if i%4096==0 {try Task.checkCancellation()};text+=String(format:"%.9g %.9g %.9g\n",locale:Locale(identifier:"en_US_POSIX"),values[i],values[i+1],values[i+2])}
+        return text
+    }
+    static func exportNative(style:StyleParams,lut:CubeLUT?,intensity:Float) throws ->URL {
+        let url=try export(style:style,lut:lut,intensity:intensity);defer {try? FileManager.default.removeItem(at:url.deletingLastPathComponent())}
+        guard let parsed=CubeLUT.parse(text:try String(contentsOf:url,encoding:.utf8),name:"Stillarc Camera colour") else {throw StillarcLookPackage.failure("Could not prepare the shared colour.")}
+        return try StillarcLookPackage(name:parsed.name,dimension:parsed.size,cube:parsed.data,excluded:["Grain, halation, spatial texture, framing, HDR and camera settings"]).write()
+    }
+
 }
