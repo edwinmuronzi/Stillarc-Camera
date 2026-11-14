@@ -3,6 +3,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import CoreVideo
 import Foundation
+import ImageIO
 
 // MARK: - Recording Codec
 
@@ -532,6 +533,51 @@ nonisolated final class CaptureEngine: NSObject,
     private weak var nativePreviewLayer: AVCaptureVideoPreviewLayer?
     private var nativePreviewEnabled = true
 
+    private var frontRotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private let frontMirrorLock = NSLock()
+    private var frontMirrorEnabled = true
+    private var frontMirrored: Bool {
+        frontMirrorLock.withLock { frontMirrorEnabled } && position == .front
+    }
+    func setFrontCameraMirroring(_ enabled: Bool) {
+        queue.async { [weak self] in
+            guard let self, !self.movieOutput.isRecording, !self.storiesOutput.isRecording,
+                  self.currentLiveWriter() == nil, self.currentWriter() == nil, self.photoDelegates.isEmpty, self.motionExposureID == nil else { return }
+            self.frontMirrorLock.withLock { self.frontMirrorEnabled = enabled }
+            self.rotateConnections()
+        }
+    }
+    // Raw 90-degree rotation is not portrait on every sensor (notably newer
+    // front cameras). Ask AVFoundation for this camera's static orientation.
+    private func orient(_ connection: AVCaptureConnection, uprightAngle: CGFloat) {
+        let sourceDevice=connection.inputPorts.compactMap {($0.input as? AVCaptureDeviceInput)?.device}.first ?? videoDevice
+        guard let device=sourceDevice,device.position == .front else {
+            if connection.isVideoRotationAngleSupported(uprightAngle), connection.videoRotationAngle != uprightAngle {
+                connection.videoRotationAngle = uprightAngle
+            }
+            return
+        }
+        let orientation: AVCaptureVideoOrientation
+        switch uprightAngle {
+        case 0: orientation = .landscapeRight
+        case 180: orientation = .landscapeLeft
+        case 270: orientation = .portraitUpsideDown
+        default: orientation = .portrait
+        }
+        if #available(iOS 27.0, *) {
+            if frontRotationCoordinator?.device !== device {
+                frontRotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
+            }
+            let angle = frontRotationCoordinator!.videoRotationAngleRelative(toDeviceOrientation: orientation)
+            if connection.isVideoRotationAngleSupported(angle), connection.videoRotationAngle != angle {
+                connection.videoRotationAngle = angle
+            }
+        } else if connection.isVideoOrientationSupported {
+            // Legacy semantic orientation also accounts for the sensor mounting.
+            connection.videoOrientation = orientation
+        }
+    }
+
     func attachNativePreview(_ layer: AVCaptureVideoPreviewLayer, enabled: Bool) {
         queue.async { [weak self, weak layer] in
             guard let self, let layer else { return }
@@ -556,12 +602,10 @@ nonisolated final class CaptureEngine: NSObject,
     private func updateNativePreviewConnection() {
         guard let connection = nativePreviewLayer?.connection else { return }
         if connection.isEnabled != nativePreviewEnabled { connection.isEnabled = nativePreviewEnabled }
-        if connection.isVideoRotationAngleSupported(90), connection.videoRotationAngle != 90 {
-            connection.videoRotationAngle = 90
-        }
+        orient(connection, uprightAngle: 90)
         if connection.isVideoMirroringSupported {
             if connection.automaticallyAdjustsVideoMirroring { connection.automaticallyAdjustsVideoMirroring = false }
-            let front = position == .front
+            let front = frontMirrored
             if connection.isVideoMirrored != front { connection.isVideoMirrored = front }
         }
     }
@@ -1183,7 +1227,9 @@ nonisolated final class CaptureEngine: NSObject,
                       device.isFocusPointOfInterestSupported,
                       device.isFocusModeSupported(.autoFocus) else { continuation.resume(returning: nil); return }
                 var devicePoint = point
-                if let viewSize, viewSize.width > 0, viewSize.height > 0 {
+                if self.position == .front,let layer=self.nativePreviewLayer,layer.bounds.width>0,layer.bounds.height>0 {
+                    devicePoint=layer.captureDevicePointConverted(fromLayerPoint:CGPoint(x:point.x*layer.bounds.width,y:point.y*layer.bounds.height))
+                } else if let viewSize, viewSize.width > 0, viewSize.height > 0 {
                     let angle = self.captureAngle()
                     let dimensions = device.activeFormat.formatDescription.dimensions
                     let landscape = angle == 0 || angle == 180
@@ -1195,7 +1241,7 @@ nonisolated final class CaptureEngine: NSObject,
                     let crop = ReelGeometry.crop(in: CGRect(x: 0, y: 0, width: sourceRatio, height: 1), ratio: feedRatio, center: reel ? self.reelTrackingState.current : CGPoint(x: 0.5, y: 0.5))
                     var x = (crop.minX + feed.x * crop.width) / sourceRatio
                     let y = crop.minY + feed.y * crop.height
-                    if device.position == .front { x = 1 - x }
+                    if self.frontMirrored { x = 1 - x }
                     switch angle {
                     case 0: devicePoint = CGPoint(x: x, y: y)
                     case 180: devicePoint = CGPoint(x: 1 - x, y: 1 - y)
@@ -1218,6 +1264,15 @@ nonisolated final class CaptureEngine: NSObject,
             self.focusLocked = true
             self.lock(device) { device.setFocusModeLocked(lensPosition: position, completionHandler: nil) }
             completion(position)
+        }
+    }
+
+    func focusFrontPreview(at point: CGPoint) {
+        queue.async { [weak self] in
+            guard let self, self.position == .front, let layer=self.nativePreviewLayer,
+                  layer.bounds.width>0,layer.bounds.height>0 else {return}
+            let p=CGPoint(x:point.x*layer.bounds.width,y:point.y*layer.bounds.height)
+            self.focus(at:layer.captureDevicePointConverted(fromLayerPoint:p))
         }
     }
 
@@ -1409,7 +1464,7 @@ nonisolated final class CaptureEngine: NSObject,
             }
             let angle = self.captureAngle()
             let orientation: CGImagePropertyOrientation = angle == 0 ? .left : angle == 180 ? .right : angle == 270 ? .down : .up
-            let mirrored = self.position == .front
+            let mirrored = self.frontMirrored
             self.analysisQueue.async { [weak self] in
                 guard let self else { return }
                 self.motionAccumulator = MotionExposureAccumulator(id: id, mode: mode, orientation: orientation)
@@ -1474,6 +1529,7 @@ nonisolated final class CaptureEngine: NSObject,
     }
     private var photoCombinationChecks: [UUID: String] = [:]
     private var presetPhotoChecks: [UUID: CheckedContinuation<Bool,Never>] = [:]
+    private var frontPhotoGeometry=[[String:Int]]()
     func verifyPresetPhoto(raw: Bool, flash: FlashChoice, format: PhotoFormat, nativeRaw: Bool) async -> Bool {
         await withCheckedContinuation { continuation in
             queue.async { [weak self] in
@@ -1483,6 +1539,44 @@ nonisolated final class CaptureEngine: NSObject,
                 self.queue.asyncAfter(deadline:.now()+20) { [weak self] in self?.presetPhotoChecks.removeValue(forKey:id)?.resume(returning:false) }
             }
         }
+    }
+
+    func verifyFrontCamera() async {
+        let original: (AVCaptureDevice.Position, CGFloat, Bool) = await withCheckedContinuation { c in
+            queue.async { [self] in
+                let saved=(position,deviceAngle,frontMirrorLock.withLock {frontMirrorEnabled})
+                position = .front;rebuildSingle()
+                session.beginConfiguration();addAnalysisOutput(force:true);rotateConnections();session.commitConfiguration()
+                c.resume(returning:saved)
+            }
+        }
+        var checks=[[String:Double]](),photos=[Bool]()
+        for mirrored in [false,true] {
+            for angle:CGFloat in [0,180,270,90] {
+                let values:[String:Double] = await withCheckedContinuation { c in
+                    queue.async { [self] in
+                        frontMirrorLock.withLock {frontMirrorEnabled=mirrored};deviceAngle=angle;rotateConnections()
+                        let analysis=analysisOutput.connection(with:.video),photo=photoOutput.connection(with:.video),movie=movieOutput.connection(with:.video),preview=nativePreviewLayer?.connection
+                        var expected=angle,portrait:CGFloat=90
+                        if #available(iOS 27.0,*),let coordinator=frontRotationCoordinator {
+                            let orientation:AVCaptureVideoOrientation=angle==0 ? .landscapeRight:angle==180 ? .landscapeLeft:angle==270 ? .portraitUpsideDown:.portrait
+                            expected=coordinator.videoRotationAngleRelative(toDeviceOrientation:orientation);portrait=coordinator.videoRotationAngleRelative(toDeviceOrientation:.portrait)
+                        }
+                        let pass=videoDevice?.position == .front && analysis != nil && photo != nil && preview != nil && abs((analysis?.videoRotationAngle ?? -999)-portrait)<0.01 && abs((photo?.videoRotationAngle ?? -999)-expected)<0.01 && abs((preview?.videoRotationAngle ?? -999)-portrait)<0.01 && analysis?.isVideoMirrored == false && photo?.isVideoMirrored == mirrored && preview?.isVideoMirrored == mirrored
+                        c.resume(returning:["desiredAngle":Double(angle),"mirror":mirrored ? 1:0,"photoAngle":Double(photo?.videoRotationAngle ?? -1),"movieAngle":Double(movie?.videoRotationAngle ?? -1),"previewAngle":Double(preview?.videoRotationAngle ?? -1),"analysisAngle":Double(analysis?.videoRotationAngle ?? -1),"expectedCaptureAngle":Double(expected),"expectedPortraitAngle":Double(portrait),"passed":pass ? 1:0])
+                    }
+                }
+                checks.append(values);try? await Task.sleep(for:.milliseconds(200))
+            }
+            photos.append(await verifyPresetPhoto(raw:false,flash:.off,format:.jpeg,nativeRaw:false))
+        }
+        await withCheckedContinuation { (c:CheckedContinuation<Void,Never>) in
+            queue.async { [self] in frontMirrorLock.withLock {frontMirrorEnabled=original.2};deviceAngle=original.1;position=original.0;rebuildSingle();c.resume() }
+        }
+        let geometry:[[String:Int]] = await withCheckedContinuation {c in queue.async { [self] in c.resume(returning:frontPhotoGeometry)}}
+        let result:[String:Any]=["photoGeometry":geometry,"passed":geometry.count==2 && geometry.allSatisfy {($0["height"] ?? 0)>=($0["width"] ?? 1)} && checks.count==8 && checks.allSatisfy {$0["passed"]==1} && photos.allSatisfy {$0},"version":Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") ?? "unknown","checks":checks,"frontPhotosDelivered":photos,"thermal":ProcessInfo.processInfo.thermalState.rawValue,"scope":"Native front camera semantic rotation and mirror routing at four orientations; JPEG capture in both mirror states. Captures are discarded, not saved to Photos."]
+        let url=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("front-camera-verification.json")
+        try? JSONSerialization.data(withJSONObject:result,options:.prettyPrinted).write(to:url,options:.atomic)
     }
 
     func verifyPhotoCombinations() {
@@ -1531,9 +1625,8 @@ nonisolated final class CaptureEngine: NSObject,
 
             let angle = self.captureAngle()
 
-            if let connection = self.photoOutput.connection(with: .video),
-               connection.isVideoRotationAngleSupported(angle) {
-                connection.videoRotationAngle = angle
+            if let connection = self.photoOutput.connection(with: .video) {
+                self.orient(connection, uprightAngle: angle)
             }
 
             #if DEBUG
@@ -1546,6 +1639,9 @@ nonisolated final class CaptureEngine: NSObject,
                     self.photoDelegates[uniqueID] = nil
                     #if DEBUG
                     if let continuation = self.presetPhotoChecks.removeValue(forKey:id) {
+                        if ProcessInfo.processInfo.arguments.contains("--verify-front-camera"),let data=processed,let source=CGImageSourceCreateWithData(data as CFData,nil),let thumbnail=CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceCreateThumbnailWithTransform:true,kCGImageSourceThumbnailMaxPixelSize:256] as CFDictionary) {
+                            self.frontPhotoGeometry.append(["width":thumbnail.width,"height":thumbnail.height,"mirrored":self.frontMirrored ? 1:0])
+                        }
                         if let movie = companion.liveMovie { try? FileManager.default.removeItem(at:movie) }
                         NSLog("PRESET_CAPTURE_RESULT processed=%d raw=%d depth=%d",processed == nil ? 0 : 1,raw == nil ? 0 : 1,companion.depth == nil ? 0 : 1)
                         continuation.resume(returning:processed != nil)
@@ -2931,18 +3027,15 @@ nonisolated final class CaptureEngine: NSObject,
             // portrait source for the fixed portrait and landscape crops.
             let angle: CGFloat = output === analysisOutput || (output === writerVideoOutput && dualPreview) ? 90 : captured
 
-            if connection.isVideoRotationAngleSupported(angle) {
-                connection.videoRotationAngle = angle
-            }
+            orient(connection, uprightAngle: angle)
 
-            if position == .front,
-               connection.isVideoMirroringSupported {
+            if connection.isVideoMirroringSupported {
                 connection.automaticallyAdjustsVideoMirroring = false
 
-                // Photos and video are mirrored like a selfie. The analysis
+                // Saved output follows the selfie mirror preference. The analysis
                 // frames stay raw and are flipped by hand to match the
                 // mirrored preview.
-                connection.isVideoMirrored = output !== analysisOutput
+                connection.isVideoMirrored = frontMirrorLock.withLock {frontMirrorEnabled} && connection.inputPorts.contains(where:{$0.sourceDevicePosition == .front}) && output !== analysisOutput
             }
         }
     }
@@ -4101,10 +4194,10 @@ nonisolated final class CaptureEngine: NSObject,
             if output === writerVideoOutput { orientation = .up }
             else {
                 switch lastAngle {
-                case 0: orientation = position == .front ? .leftMirrored : .left
-                case 180: orientation = position == .front ? .rightMirrored : .right
-                case 270: orientation = position == .front ? .downMirrored : .down
-                default: orientation = position == .front ? .upMirrored : .up
+                case 0: orientation = frontMirrored ? .leftMirrored : .left
+                case 180: orientation = frontMirrored ? .rightMirrored : .right
+                case 270: orientation = frontMirrored ? .downMirrored : .down
+                default: orientation = frontMirrored ? .upMirrored : .up
                 }
             }
             subjectTracker.offer(frame, orientation: orientation)
@@ -4223,7 +4316,7 @@ nonisolated final class CaptureEngine: NSObject,
         guard !scopesBusy else { auxiliaryLock.unlock(); return }
         scopesBusy = true
         auxiliaryLock.unlock()
-        let mirror = position == .front
+        let mirror = frontMirrored
         scopesQueue.async { [weak self] in
             guard let self else { return }
             defer { self.auxiliaryLock.lock(); self.scopesBusy = false; self.auxiliaryLock.unlock() }
@@ -4576,7 +4669,7 @@ nonisolated final class CaptureEngine: NSObject,
             self.lastTrackingFocusTime = now
             self.lastTrackingFocusPoint = point
             var p = point
-            if self.position == .front { p.x = 1 - p.x }
+            if self.frontMirrored { p.x = 1 - p.x }
             let devicePoint: CGPoint
             switch self.lastAngle {
             case 0: devicePoint = p
@@ -4772,6 +4865,8 @@ nonisolated final class CaptureEngine: NSObject,
                     let asset = AVURLAsset(url: url)
                     guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw NSError(domain: "Verification", code: 1) }
                     let size = try await track.load(.naturalSize)
+                    let transform = try await track.load(.preferredTransform)
+                    let oriented=size.applying(transform),display=CGSize(width:abs(oriented.width),height:abs(oriented.height))
                     let duration = try await asset.load(.duration).seconds
                     let reader = try AVAssetReader(asset: asset)
                     let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
@@ -4793,6 +4888,7 @@ nonisolated final class CaptureEngine: NSObject,
                         buckets[Int(time / 5), default: 0] += 1
                         if i > 0 && time > 1 { longest = max(longest, times[i] - times[i - 1]) }
                     }
+                    if ProcessInfo.processInfo.arguments.contains("--verify-front-video") {NSLog("FRONT_VIDEO_ORIENTATION display=%@ portrait=%d",String(describing:display),display.height>display.width ? 1:0)}
                     NSLog("FRAME_CADENCE_VERIFY maxGapAfter1sMs=%.1f fiveSecondCounts=%@", longest * 1000, String(describing: buckets.keys.sorted().map { buckets[$0]! }))
                     NSLog("STYLE_FILE_VERIFY %@ size=%@ frames=%ld duration=%.2f valid=%d", url.lastPathComponent, String(describing: size), count, duration, reader.status == .completed && count > 0 ? 1 : 0)
                 } catch { NSLog("STYLE_FILE_VERIFY FAIL %@", error.localizedDescription) }
@@ -5050,9 +5146,9 @@ nonisolated final class CaptureEngine: NSObject,
         let duration = device.activeVideoMinFrameDuration.seconds
         let fps = duration.isFinite && duration > 0 ? 1 / duration : 30
         let previewAngle = captureAngle()
-        let previewMirrored = position == .front
+        let previewMirrored = frontMirrored
         guard let writer = LiveMovieWriter(primary: makeURL(prefix: dual ? "Landscape" : "Graded"), secondary: dual ? makeURL(prefix: "Reel") : nil, recordingID: recordingID, completionQueue: writerQueue, resources: renderResources, fps: fps, audioSettings: audioSettings, cube: recordingCube, cubeSize: recordingCubeSize, intensity: recordingIntensity, style: recordingStyle, singleSize: size, framing: framingSnapshot(), tracking: dual ? reelTrackingState : nil, frameCrop: videoCrop, viewRatio: videoViewRatio, codec: dual ? AVVideoCodecType.hevc.rawValue : codec.rawValue, bitrate: bitrate ?? 24_000_000, usesAnalysisStream: reuseAnalysis,
-            sourceOrientation: reuseAnalysis && position == .front ? .upMirrored : .up, onPreview: { [weak self] wide, tall in
+            sourceOrientation: reuseAnalysis && frontMirrored ? .upMirrored : .up, onPreview: { [weak self] wide, tall in
             guard let self, self.usesLivePreview, !self.previewSuppressed else { return }
             if let tall {
                 self.enqueuePreview(tall, on: self.monitorLayer)
@@ -5308,7 +5404,7 @@ nonisolated final class CaptureEngine: NSObject,
         var height = CGFloat(CVPixelBufferGetHeight(source))
 
         // A frame that arrives sideways is turned upright.
-        let turn = width > height
+        let turn = width > height && position != .front
 
         if turn {
             swap(&width, &height)
@@ -5338,12 +5434,12 @@ nonisolated final class CaptureEngine: NSObject,
             options: [.colorSpace: NSNull()]
         )
 
-        if videoDevice?.position == .front {
+        if frontMirrored {
             image = image.oriented(.upMirrored)
         }
 
         if turn {
-            image = image.oriented(position == .front ? .leftMirrored : .right)
+            image = image.oriented(.right)
         }
 
         let extent = image.extent
@@ -5711,7 +5807,7 @@ nonisolated final class CaptureEngine: NSObject,
         guard CFAbsoluteTimeGetCurrent() >= holdUntil else { return }
 
         // If the frame arrives sideways while the phone is upright, turn it.
-        let turnFrame = sourceW > sourceH
+        let turnFrame = sourceW > sourceH && position != .front
 
         if turnFrame {
             swap(&sourceW, &sourceH)
@@ -5754,12 +5850,12 @@ nonisolated final class CaptureEngine: NSObject,
 
         // Analysis frames arrive unmirrored. The front preview is mirrored
         // like a selfie, so flip the LUT monitor to match it.
-        if videoDevice?.position == .front {
+        if frontMirrored {
             image = image.oriented(.upMirrored)
         }
 
         if turnFrame {
-            image = image.oriented(position == .front ? .leftMirrored : (lastAngle == 180 ? .left : .right))
+            image = image.oriented(lastAngle == 180 ? .left : .right)
         }
 
         // Camera buffers can carry a few unused or empty pixels along an

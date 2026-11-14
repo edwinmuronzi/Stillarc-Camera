@@ -1,5 +1,13 @@
 # Stillarc Camera validation
 
+## 1.3.10 — front-camera orientation and mirroring
+
+The 17 Pro front sensor reports **0°** for portrait; the previous fixed **90°** rotated it sideways. Camera now uses the source camera’s static orientation mapping on iOS 27, with semantic connection orientation on iOS 26. Analysis and native preview stay upright; saved output follows the capture orientation. Front LUT/style/loupe paths no longer infer a rotation from width alone or apply a second mirrored quarter turn. Back-camera orientation is retained.
+
+Settings → Shooting → Mirror front camera defaults to the previous mirrored selfie behaviour, persists independently of Preserve settings, and controls preview plus saved photo/video. The control is disabled during recording, pending photos or motion exposure. Front touch focus uses the preview layer’s camera-point conversion.
+
+On the physical 17 Pro, all four orientation mappings passed with mirroring both off and on; analysis remained unmirrored and portrait while display/capture followed the chosen mirror state. Two JPEGs decoded upright (192 × 256 verification thumbnails) and were discarded. Four native 4K/30 recordings — Standard and VHS style in both mirror states — decoded successfully and displayed at 2160 × 3840 after MOV transform metadata. The temporary clips were deleted instead of saved to Photos. These are targeted checks; iOS 26 fallback and other physical front cameras were not tested in this run. [Evidence](Validation/1.3.10).
+
 ## 1.3.8 — lens access and Log latency
 
 Native repeated lens changes, live Log zoom, 4K 10-bit Log/Log 2 at 30/60 fps, a one-minute LUT-monitored recording and rapid-photo regression passed on the 17 Pro. See [recorded evidence and limits](Validation/1.3.8/README.md).

@@ -1,0 +1,10 @@
+{
+  "version": "1.3.10",
+  "build": "27",
+  "releaseArchivePassed": true,
+  "strictSignatureVerified": true,
+  "executableSHA256": "f31dd65dbf92006a3019e186635d960a2f7bb5810852fd717927a760325bea2a",
+  "device": "iPhone 17 Pro",
+  "minimumIOS": "26.0",
+  "fallbackIOS26PhysicalTested": false
+}

@@ -1,0 +1,112 @@
+{
+  "scope" : "Native front camera semantic rotation and mirror routing at four orientations; JPEG capture in both mirror states. Captures are discarded, not saved to Photos.",
+  "frontPhotosDelivered" : [
+    true,
+    true
+  ],
+  "photoGeometry" : [
+    {
+      "mirrored" : 0,
+      "height" : 256,
+      "width" : 192
+    },
+    {
+      "mirrored" : 1,
+      "height" : 256,
+      "width" : 192
+    }
+  ],
+  "passed" : true,
+  "checks" : [
+    {
+      "mirror" : 0,
+      "analysisAngle" : 0,
+      "movieAngle" : 90,
+      "photoAngle" : 90,
+      "previewAngle" : 0,
+      "desiredAngle" : 0,
+      "passed" : 1,
+      "expectedPortraitAngle" : 0,
+      "expectedCaptureAngle" : 90
+    },
+    {
+      "analysisAngle" : 0,
+      "expectedPortraitAngle" : 0,
+      "previewAngle" : 0,
+      "desiredAngle" : 180,
+      "photoAngle" : 270,
+      "movieAngle" : 270,
+      "mirror" : 0,
+      "expectedCaptureAngle" : 270,
+      "passed" : 1
+    },
+    {
+      "previewAngle" : 0,
+      "desiredAngle" : 270,
+      "analysisAngle" : 0,
+      "expectedCaptureAngle" : 180,
+      "expectedPortraitAngle" : 0,
+      "passed" : 1,
+      "mirror" : 0,
+      "photoAngle" : 180,
+      "movieAngle" : 180
+    },
+    {
+      "movieAngle" : 0,
+      "passed" : 1,
+      "expectedCaptureAngle" : 0,
+      "photoAngle" : 0,
+      "previewAngle" : 0,
+      "mirror" : 0,
+      "analysisAngle" : 0,
+      "expectedPortraitAngle" : 0,
+      "desiredAngle" : 90
+    },
+    {
+      "expectedPortraitAngle" : 0,
+      "expectedCaptureAngle" : 90,
+      "desiredAngle" : 0,
+      "photoAngle" : 90,
+      "movieAngle" : 90,
+      "analysisAngle" : 0,
+      "passed" : 1,
+      "mirror" : 1,
+      "previewAngle" : 0
+    },
+    {
+      "previewAngle" : 0,
+      "movieAngle" : 270,
+      "expectedCaptureAngle" : 270,
+      "analysisAngle" : 0,
+      "passed" : 1,
+      "mirror" : 1,
+      "desiredAngle" : 180,
+      "photoAngle" : 270,
+      "expectedPortraitAngle" : 0
+    },
+    {
+      "expectedPortraitAngle" : 0,
+      "movieAngle" : 180,
+      "expectedCaptureAngle" : 180,
+      "passed" : 1,
+      "desiredAngle" : 270,
+      "analysisAngle" : 0,
+      "photoAngle" : 180,
+      "previewAngle" : 0,
+      "mirror" : 1
+    },
+    {
+      "mirror" : 1,
+      "previewAngle" : 0,
+      "expectedPortraitAngle" : 0,
+      "photoAngle" : 0,
+      "movieAngle" : 0,
+      "analysisAngle" : 0,
+      "expectedCaptureAngle" : 0,
+      "passed" : 1,
+      "desiredAngle" : 90
+    }
+  ],
+  "thermal" : 0,
+  "version" : "1.3.10"
+}

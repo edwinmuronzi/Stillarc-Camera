@@ -370,6 +370,13 @@ final class CameraStore {
         }
     }
 
+    var mirrorFrontCamera = (UserDefaults.standard.object(forKey: "stillarc.mirrorFrontCamera") as? Bool) ?? true {
+        didSet {
+            UserDefaults.standard.set(mirrorFrontCamera, forKey: "stillarc.mirrorFrontCamera")
+            engine.setFrontCameraMirroring(mirrorFrontCamera)
+        }
+    }
+
     var lockWBOnRecord = UserDefaults.standard.bool(forKey: "frameline.lockWBRecord") {
         didSet { UserDefaults.standard.set(lockWBOnRecord, forKey: "frameline.lockWBRecord") }
     }
@@ -763,7 +770,10 @@ final class CameraStore {
         loadImportedLUTs()
         restorePreserved()
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--verify-single-recording") {
+        if ProcessInfo.processInfo.arguments.contains("--verify-front-camera") {
+            mode = .photo;dualShot = false;logProfile = .off;livePhoto = false;depthPortrait = false
+        }
+        if ProcessInfo.processInfo.arguments.contains("--verify-single-recording") || ProcessInfo.processInfo.arguments.contains("--verify-front-video") {
             mode = .video; dualShot = false; logProfile = .off
         }
         if ProcessInfo.processInfo.arguments.contains("--verify-live-zoom") || ProcessInfo.processInfo.arguments.contains("--verify-advanced-preview") {
@@ -915,12 +925,18 @@ final class CameraStore {
 
         updatePreviewLog()
 
+        engine.setFrontCameraMirroring(mirrorFrontCamera)
         engine.start()
         framingChanged()
         engine.setExposureBias(exposure)
 
         refreshRecordingCodecs()
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--verify-front-camera") {
+            UIApplication.shared.isIdleTimerDisabled = true
+            selectMode(.photo)
+            Task {await engine.verifyFrontCamera()}
+        }
         if ProcessInfo.processInfo.arguments.contains("--verify-style-sliders") {
             verifyStyleSliders()
         }
@@ -939,7 +955,7 @@ final class CameraStore {
         if ProcessInfo.processInfo.arguments.contains("--verify-log-photo-preset") { verifyLogPhotoPreset() }
         if ProcessInfo.processInfo.arguments.contains("--verify-preset-capture") { verifyPresetCapture() }
         if ProcessInfo.processInfo.arguments.contains("--verify-photo-pipeline") { verifyPhotoPipeline() }
-        if ProcessInfo.processInfo.arguments.contains("--verify-single-recording") { verifySingleRecording() }
+        if ProcessInfo.processInfo.arguments.contains("--verify-single-recording") || ProcessInfo.processInfo.arguments.contains("--verify-front-video") { verifySingleRecording() }
         if ProcessInfo.processInfo.arguments.contains("--verify-camera-reliability") { verifyCameraReliability() }
         if ProcessInfo.processInfo.arguments.contains("--verify-photo-burst") { verifyPhotoBurst() }
         if ProcessInfo.processInfo.arguments.contains("--verify-upgrade") { verifyUpgrade() }
@@ -1607,7 +1623,11 @@ final class CameraStore {
             }
         }
 
-        // The viewfinder is always portrait, whatever the capture angle.
+        if isFrontCamera {
+            engine.focusFrontPreview(at:CGPoint(x:viewPoint.x/size.width,y:viewPoint.y/size.height))
+            return
+        }
+        // The rear viewfinder is always portrait, whatever the capture angle.
         let devicePoint = CGPoint(
             x: viewPoint.y / size.height,
             y: 1 - (viewPoint.x / size.width)
@@ -3594,12 +3614,16 @@ final class CameraStore {
             guard let self else { return }
             UIApplication.shared.isIdleTimerDisabled = true
             let originalHistogram = showHistogram
-            defer { showHistogram = originalHistogram; UIApplication.shared.isIdleTimerDisabled = false }
+            let frontCheck=ProcessInfo.processInfo.arguments.contains("--verify-front-video")
+            defer { showHistogram = originalHistogram;engine.setFrontCameraMirroring(mirrorFrontCamera);UIApplication.shared.isIdleTimerDisabled = false }
             try? await Task.sleep(for: .seconds(2))
+            if frontCheck,!isFrontCamera {flip();try? await Task.sleep(for:.seconds(1))}
             let codec = RecordingCodec(rawValue: AVVideoCodecType.hevc.rawValue)
             let native = [("standard", 60), ("standard", 30)]
-            let phases = ProcessInfo.processInfo.arguments.contains("--verify-native-only") ? native : [("vhs", 60), ("vhs", 30)] + native
-            for (lookID, fps) in phases {
+            let phases = frontCheck ? [("vhs",30),("vhs",30),("standard",30),("standard",30)] : ProcessInfo.processInfo.arguments.contains("--verify-native-only") ? native : [("vhs", 60), ("vhs", 30)] + native
+            for (index,phase) in phases.enumerated() {
+                let (lookID,fps)=phase
+                if frontCheck {engine.setFrontCameraMirroring(index % 2 == 1);NSLog("FRONT_VIDEO_VERIFY mirror=%d look=%@",index % 2 == 1 ? 1:0,lookID)}
                 let thermal = ProcessInfo.processInfo.thermalState
                 guard thermal != .serious, thermal != .critical else {
                     NSLog("SINGLE_VERIFY stopped before %@ %ld fps: thermal=%ld", lookID, fps, thermal.rawValue)

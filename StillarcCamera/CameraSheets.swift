@@ -388,6 +388,11 @@ struct SettingsSheet: View {
                 Section("Shooting") {
                     Toggle("Preserve settings", isOn: $store.preserveSettings)
                     Toggle("Lock white balance while recording", isOn: $store.lockWBOnRecord)
+                    Toggle("Mirror front camera", isOn: $store.mirrorFrontCamera)
+                        .disabled(store.isRecording || store.pendingPhotoCount > 0 || store.motionExposureActive)
+                        .accessibilityIdentifier("mirrorFrontCamera")
+                    Text("Mirror on shows and saves selfies like a mirror. Turn it off for a natural, unmirrored preview, photo and video. This choice is remembered when you reopen Stillarc.")
+                        .font(.caption).foregroundStyle(.secondary)
 
                     Picker("Stabilization", selection: $store.stabilization) {
                         ForEach(StabilizationChoice.allCases) { choice in

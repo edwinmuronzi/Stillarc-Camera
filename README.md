@@ -315,6 +315,10 @@ Log HEVC uses a bounded live capture queue and disables encoder frame reordering
 
 See [native checks and limits](Validation/1.3.8/README.md).
 
+## 1.3.10 · upright selfies and mirror control
+
+Front-camera orientation now follows the camera’s sensor mounting instead of assuming a fixed 90° rotation. Native preview, live looks, photos and video share the corrected orientation. **Settings → Shooting → Mirror front camera** controls both the displayed selfie and saved photos/video; turn it off for unmirrored output. The choice persists after reopening and cannot be changed during recording or an active photo capture. Front tap-to-focus follows the preview’s actual rotation and mirror transform. [Validation](Validation/1.3.10).
+
 ## 1.3.9 · native colour interchange
 
 Look studio → Share colour with Studio now produces a `.stillarclook` package. Import it in Studio’s Film tools. Camera’s LUT importer also accepts Studio `.stillarclook` files, selects the portable display-sRGB colour and Standard style. Use Standard gamma for the shared colour. Studio’s spatial effects, source-specific edits and camera exposure/focus settings do not transfer. Camera captures/lens/Log processing are unchanged by this companion update. Ordinary `.cube` import remains supported.
