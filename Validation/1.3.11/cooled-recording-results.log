@@ -1,0 +1,25 @@
+2026-11-16 15:17:08.622 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"standard","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"analysis","supported":true}],"thermal":0,"zoom":1}
+2026-11-16 15:17:09.217 StillarcCamera[18554:4980460] FRAME_CADENCE_VERIFY maxGapAfter1sMs=33.3 fiveSecondCounts=[118]
+2026-11-16 15:17:09.218 StillarcCamera[18554:4980460] STYLE_FILE_VERIFY Stillarc-71C15B8D-595A-4E2A-B70F-BFB19976BE8A.mov size=(3840.0, 2160.0) frames=118 duration=3.87 valid=1
+2026-11-16 15:17:15.327 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"vhs","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"writer","supported":true}],"thermal":0,"zoom":1}
+2026-11-16 15:17:15.703 StillarcCamera[18554:4980459] FRAME_CADENCE_VERIFY maxGapAfter1sMs=33.3 fiveSecondCounts=[109]
+2026-11-16 15:17:15.703 StillarcCamera[18554:4980459] STYLE_FILE_VERIFY Graded-F8650996-62CA-48DD-99BD-391190E466AA.mov size=(2160.0, 3840.0) frames=109 duration=4.11 valid=1
+2026-11-16 15:17:22.286 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"standard","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"analysis","supported":true}],"thermal":0,"zoom":4}
+2026-11-16 15:17:22.842 StillarcCamera[18554:4981134] FRAME_CADENCE_VERIFY maxGapAfter1sMs=35.0 fiveSecondCounts=[110]
+2026-11-16 15:17:22.842 StillarcCamera[18554:4981134] STYLE_FILE_VERIFY Stillarc-750D5A0E-2D6A-4134-8688-66CD0263E3A2.mov size=(3840.0, 2160.0) frames=110 duration=3.60 valid=1
+2026-11-16 15:17:28.867 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"vhs","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"writer","supported":true}],"thermal":0,"zoom":4}
+2026-11-16 15:17:29.358 StillarcCamera[18554:4980458] FRAME_CADENCE_VERIFY maxGapAfter1sMs=35.0 fiveSecondCounts=[109]
+2026-11-16 15:17:29.358 StillarcCamera[18554:4980458] STYLE_FILE_VERIFY Graded-50A935EC-5D4E-4FB2-A7EF-03F3FD885123.mov size=(2160.0, 3840.0) frames=109 duration=4.09 valid=1
+2026-11-16 15:17:35.870 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"standard","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"analysis","supported":true}],"thermal":0,"zoom":8}
+2026-11-16 15:17:36.469 StillarcCamera[18554:4981135] FRAME_CADENCE_VERIFY maxGapAfter1sMs=35.0 fiveSecondCounts=[115]
+2026-11-16 15:17:36.469 StillarcCamera[18554:4981135] STYLE_FILE_VERIFY Stillarc-7C653086-C859-469E-86A3-9BFB3D8A7B65.mov size=(3840.0, 2160.0) frames=115 duration=3.77 valid=1
+2026-11-16 15:17:42.587 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"vhs","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"writer","supported":true}],"thermal":0,"zoom":8}
+2026-11-16 15:17:43.099 StillarcCamera[18554:4982002] FRAME_CADENCE_VERIFY maxGapAfter1sMs=35.0 fiveSecondCounts=[110]
+2026-11-16 15:17:43.099 StillarcCamera[18554:4982002] STYLE_FILE_VERIFY Graded-168C87CE-E158-41D1-88C2-484D0E4B00F9.mov size=(2160.0, 3840.0) frames=110 duration=4.12 valid=1
+2026-11-16 15:17:49.682 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"standard","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"analysis","supported":true}],"thermal":0,"zoom":0.5}
+2026-11-16 15:17:50.266 StillarcCamera[18554:4981132] FRAME_CADENCE_VERIFY maxGapAfter1sMs=35.0 fiveSecondCounts=[118]
+2026-11-16 15:17:50.266 StillarcCamera[18554:4981132] STYLE_FILE_VERIFY Stillarc-B7B0FF4C-1B55-44F3-BB90-484264C2CE08.mov size=(3840.0, 2160.0) frames=118 duration=3.87 valid=1
+2026-11-16 15:17:56.262 StillarcCamera[18554:4980401] STABILIZATION_VERIFY {"expected":2,"fps":30,"look":"vhs","passed":true,"streams":[{"active":2,"passed":true,"preferred":2,"stream":"movie","supported":true},{"active":2,"passed":true,"preferred":2,"stream":"writer","supported":true}],"thermal":0,"zoom":0.5}
+2026-11-16 15:17:56.777 StillarcCamera[18554:4980558] FRAME_CADENCE_VERIFY maxGapAfter1sMs=35.0 fiveSecondCounts=[108]
+2026-11-16 15:17:56.777 StillarcCamera[18554:4980558] STYLE_FILE_VERIFY Graded-0184F390-483B-4EF2-8068-CC12C920D929.mov size=(2160.0, 3840.0) frames=108 duration=4.06 valid=1
+2026-11-16 15:17:57.460 StillarcCamera[18554:4980401] SINGLE_VERIFY COMPLETE

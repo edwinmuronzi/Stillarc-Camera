@@ -1,0 +1,197 @@
+{
+  "passed" : true,
+  "results" : [
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "standard",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "analysis",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 1
+    },
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "vhs",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "writer",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 1
+    },
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "standard",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "analysis",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 4
+    },
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "vhs",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "writer",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 4
+    },
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "standard",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "analysis",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 8
+    },
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "vhs",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "writer",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 8
+    },
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "standard",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "analysis",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 0.5
+    },
+    {
+      "expected" : 2,
+      "fps" : 30,
+      "look" : "vhs",
+      "passed" : true,
+      "streams" : [
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "movie",
+          "supported" : true
+        },
+        {
+          "active" : 2,
+          "passed" : true,
+          "preferred" : 2,
+          "stream" : "writer",
+          "supported" : true
+        }
+      ],
+      "thermal" : 0,
+      "zoom" : 0.5
+    }
+  ]
+}
