@@ -603,6 +603,7 @@ nonisolated final class CaptureEngine: NSObject,
         guard let connection = nativePreviewLayer?.connection else { return }
         if connection.isEnabled != nativePreviewEnabled { connection.isEnabled = nativePreviewEnabled }
         orient(connection, uprightAngle: 90)
+        stabilize(connection, previewOnly: true)
         if connection.isVideoMirroringSupported {
             if connection.automaticallyAdjustsVideoMirroring { connection.automaticallyAdjustsVideoMirroring = false }
             let front = frontMirrored
@@ -1018,28 +1019,60 @@ nonisolated final class CaptureEngine: NSObject,
 
             self.videoStabilization = mode
 
-            for output in self.session.outputs {
-                guard output is AVCaptureMovieFileOutput
-                        || output === self.writerVideoOutput,
-                      let connection = output.connection(with: .video),
-                      connection.isVideoStabilizationSupported else {
-                    continue
-                }
+            self.applyVideoStabilization()
+        }
+    }
 
-                connection.preferredVideoStabilizationMode = self.supported(mode)
+    // Resolve Auto explicitly: system Auto can select a very light correction.
+    // Keep user Off/Standard intact and fall back through supported algorithms.
+    private func supported(_ mode: AVCaptureVideoStabilizationMode) -> AVCaptureVideoStabilizationMode {
+        guard let device = videoDevice else { return .off }
+        let candidates: [AVCaptureVideoStabilizationMode]
+        switch mode {
+        case .off: return .off
+        case .auto: candidates = [.lowLatency, .cinematic, .standard]
+        case .cinematicExtendedEnhanced:
+            candidates = [.cinematicExtendedEnhanced, .cinematicExtended, .cinematic, .standard]
+        case .cinematicExtended: candidates = [.cinematicExtended, .cinematic, .standard]
+        case .cinematic: candidates = [.cinematic, .standard]
+        default: candidates = [mode, .standard]
+        }
+        return candidates.first { device.activeFormat.isVideoStabilizationModeSupported($0) } ?? .off
+    }
+
+    private func stabilize(_ connection: AVCaptureConnection, previewOnly: Bool = false) {
+        guard connection.isVideoStabilizationSupported else { return }
+        let previewMode: AVCaptureVideoStabilizationMode = videoStabilization == .off ? .off : .previewOptimized
+        let mode = !previewVideo ? AVCaptureVideoStabilizationMode.off : previewOnly && videoDevice?.activeFormat.isVideoStabilizationModeSupported(previewMode) == true ? previewMode : supported(videoStabilization)
+        if connection.preferredVideoStabilizationMode != mode {
+            connection.preferredVideoStabilizationMode = mode
+        }
+    }
+
+    private func applyVideoStabilization() {
+        if let connection = nativePreviewLayer?.connection { stabilize(connection, previewOnly: true) }
+        for output in session.outputs where output is AVCaptureMovieFileOutput || output is AVCaptureVideoDataOutput {
+            if let connection = output.connection(with: .video) { stabilize(connection) }
+        }
+    }
+
+    #if DEBUG
+    func stabilizationSnapshot() async -> [String:Any] {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                guard let self else { continuation.resume(returning:["passed":false]); return }
+                let expected = self.supported(self.videoStabilization)
+                var streams = [[String:Any]]()
+                for output in self.session.outputs where output is AVCaptureMovieFileOutput || output is AVCaptureVideoDataOutput {
+                    guard let c=output.connection(with:.video) else {continue}
+                    let name=output === self.analysisOutput ? "analysis" : output === self.writerVideoOutput ? "writer" : "movie"
+                    streams.append(["stream":name,"supported":c.isVideoStabilizationSupported,"preferred":c.preferredVideoStabilizationMode.rawValue,"active":c.activeVideoStabilizationMode.rawValue,"passed":!c.isVideoStabilizationSupported || (c.preferredVideoStabilizationMode == expected && c.activeVideoStabilizationMode == expected)])
+                }
+                continuation.resume(returning:["expected":expected.rawValue,"streams":streams,"passed":streams.allSatisfy {$0["passed"] as? Bool == true},"thermal":ProcessInfo.processInfo.thermalState.rawValue])
             }
         }
     }
-
-    // Falls back to automatic when the current format cannot do the mode.
-    private func supported(_ mode: AVCaptureVideoStabilizationMode) -> AVCaptureVideoStabilizationMode {
-        guard let device = videoDevice,
-              device.activeFormat.isVideoStabilizationModeSupported(mode) else {
-            return .auto
-        }
-
-        return mode
-    }
+    #endif
 
     // MARK: - Exposure
 
@@ -3013,6 +3046,7 @@ nonisolated final class CaptureEngine: NSObject,
 
     // Photos, video and the analysis frames follow how the phone is held.
     private func rotateConnections() {
+        applyVideoStabilization()
         updateNativePreviewConnection()
         let captured = captureAngle()
         lastAngle = captured
@@ -3367,6 +3401,7 @@ nonisolated final class CaptureEngine: NSObject,
             print("STILLARC FORMAT ERROR: \(error.localizedDescription)")
         }
 
+        applyVideoStabilization()
         session.commitConfiguration()
 
         if applied, log != .off, device.activeColorSpace != target {
@@ -3893,6 +3928,7 @@ nonisolated final class CaptureEngine: NSObject,
                 self.session.commitConfiguration()
                 self.publishCaps()
             }
+            self.applyVideoStabilization()
         }
     }
 

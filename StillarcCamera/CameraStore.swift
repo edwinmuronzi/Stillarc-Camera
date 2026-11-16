@@ -3614,15 +3614,24 @@ final class CameraStore {
             guard let self else { return }
             UIApplication.shared.isIdleTimerDisabled = true
             let originalHistogram = showHistogram
+            let stabilizationCheck=ProcessInfo.processInfo.arguments.contains("--verify-stabilization")
+            var stabilizationResults=[[String:Any]]()
+            let originalSetup=currentShootingPreset(named:"Restore")
             let frontCheck=ProcessInfo.processInfo.arguments.contains("--verify-front-video")
-            defer { showHistogram = originalHistogram;engine.setFrontCameraMirroring(mirrorFrontCamera);UIApplication.shared.isIdleTimerDisabled = false }
+            defer { if stabilizationCheck {applyShootingPreset(originalSetup)}; showHistogram = originalHistogram;engine.setFrontCameraMirroring(mirrorFrontCamera);UIApplication.shared.isIdleTimerDisabled = false }
             try? await Task.sleep(for: .seconds(2))
             if frontCheck,!isFrontCamera {flip();try? await Task.sleep(for:.seconds(1))}
             let codec = RecordingCodec(rawValue: AVVideoCodecType.hevc.rawValue)
             let native = [("standard", 60), ("standard", 30)]
-            let phases = frontCheck ? [("vhs",30),("vhs",30),("standard",30),("standard",30)] : ProcessInfo.processInfo.arguments.contains("--verify-native-only") ? native : [("vhs", 60), ("vhs", 30)] + native
+            let phases = stabilizationCheck ? [("standard",30),("vhs",30),("standard",30),("vhs",30),("standard",30),("vhs",30),("standard",30),("vhs",30)] : frontCheck ? [("vhs",30),("vhs",30),("standard",30),("standard",30)] : ProcessInfo.processInfo.arguments.contains("--verify-native-only") ? native : [("vhs", 60), ("vhs", 30)] + native
             for (index,phase) in phases.enumerated() {
                 let (lookID,fps)=phase
+                if stabilizationCheck {
+                    stabilization = .auto
+                    let zoom=[1.0,1,4,4,8,8,0.5,0.5][index]
+                    if let lens=lenses.min(by:{abs($0.zoom-zoom)<abs($1.zoom-zoom)}) {selectLens(lens)}
+                    try? await Task.sleep(for:.milliseconds(800))
+                }
                 if frontCheck {engine.setFrontCameraMirroring(index % 2 == 1);NSLog("FRONT_VIDEO_VERIFY mirror=%d look=%@",index % 2 == 1 ? 1:0,lookID)}
                 let thermal = ProcessInfo.processInfo.thermalState
                 guard thermal != .serious, thermal != .critical else {
@@ -3654,11 +3663,23 @@ final class CameraStore {
                     showHistogram = false
                     try? await Task.sleep(for: .seconds(2))
                 } else { try? await Task.sleep(for: .seconds(4)) }
+                if stabilizationCheck {
+                    var result=await engine.stabilizationSnapshot()
+                    result["look"]=lookID;result["fps"]=fps;result["zoom"]=lensZoom
+                    stabilizationResults.append(result)
+                    let data=(try? JSONSerialization.data(withJSONObject:result,options:[.sortedKeys])) ?? Data()
+                    NSLog("STABILIZATION_VERIFY %@",String(decoding:data,as:UTF8.self))
+                }
                 engine.endSingleCadenceProbe(label: "\(lookID) \(fps)fps")
                 engine.stopRecording()
                 for _ in 0..<45 where isRecording { try? await Task.sleep(for: .milliseconds(100)) }
                 guard !isRecording else { NSLog("SINGLE_VERIFY failed to stop %@ %ld fps", lookID, fps); return }
                 try? await Task.sleep(for: .milliseconds(650))
+            }
+            if stabilizationCheck {
+                let report:[String:Any] = ["passed":stabilizationResults.count == 8 && stabilizationResults.allSatisfy {$0["passed"] as? Bool == true},"results":stabilizationResults]
+                let url=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("stabilization-verification.json")
+                try? JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:url,options:.atomic)
             }
             NSLog("SINGLE_VERIFY COMPLETE")
         }

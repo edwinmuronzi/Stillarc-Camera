@@ -322,3 +322,7 @@ Front-camera orientation now follows the camera’s sensor mounting instead of a
 ## 1.3.9 · native colour interchange
 
 Look studio → Share colour with Studio now produces a `.stillarclook` package. Import it in Studio’s Film tools. Camera’s LUT importer also accepts Studio `.stillarclook` files, selects the portable display-sRGB colour and Standard style. Use Standard gamma for the shared colour. Studio’s spatial effects, source-specific edits and camera exposure/focus settings do not transfer. Camera captures/lens/Log processing are unchanged by this companion update. Ordinary `.cube` import remains supported.
+
+### Steadier video
+
+Video stabilization now follows native, live-look and Log recording streams, and is reapplied after lens and format changes. Settings → Shooting → Stabilization → Auto prefers Apple’s low-latency stabilization, with a small crop. Off preserves the widest view; Standard offers lighter correction; Cinematic and Extreme select a fixed stronger mode when supported. Very high zoom still magnifies hand movement.

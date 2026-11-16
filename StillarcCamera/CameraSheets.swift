@@ -401,6 +401,9 @@ struct SettingsSheet: View {
                     }
                     .disabled(store.isRecording)
 
+                    Text("Auto uses responsive, supported video stabilization. It crops the view slightly to steady movement, including when zoomed. Off keeps the widest view. Very high zoom still benefits from a steady hold.")
+                        .font(.caption).foregroundStyle(.secondary)
+
                     Picker("Timelapse interval", selection: $store.timelapseInterval) {
                         Text("Off").tag(0)
                         Text("1 second").tag(1)

@@ -129,3 +129,9 @@ Approved large yellow S, silver split lens ring and small red A replace the aper
 ## 1.3.6 — final icon proportions
 
 One approved dark master serves default/light and dark appearances. The S has more clearance from the lens ring and the red A is dot-like at small sizes. BrandIcon, marketing and Desktop copies match. Capture behavior, preferences and installation identity remain unchanged.
+
+## 1.3.11 — consistent video stabilization
+
+Apply stabilization to native movie, GPU writer and processed-preview video connections on the capture queue. Re-resolve against the active format after mode, format, output and lens changes; do not add an image-warp pass. Auto prefers Apple low-latency stabilization, then cinematic/standard on formats without it. Extended cinematic modes remain explicit choices because their buffered startup can delay the GPU-writer video relative to audio. Native preview uses the low-power preview-optimized algorithm when supported. Explicit Off remains Off, and Photo/Rangefinder turn video stabilization off.
+
+`--verify-single-recording --verify-stabilization` records eight private 4K Standard/VHS clips at 0.5×, 1×, 4× and 8× at 30 fps; reports preferred/active connection modes to Documents/stabilization-verification.json and existing cadence/file diagnostics. Test files never enter Photos. This verifies algorithm activation and cadence, not handheld walking quality or equivalence to Apple Camera.
