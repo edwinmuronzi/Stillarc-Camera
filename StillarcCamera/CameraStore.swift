@@ -754,8 +754,24 @@ final class CameraStore {
         mode == .rangefinder || aspect != .sensor
     }
 
+    @ObservationIgnored private var activationTask: Task<Void,Never>?
+    var cameraActivated: Bool { bound }
     func activate() {
-        guard bound == false else { return }
+        guard !bound, activationTask == nil else { return }
+        let directory = lutDirectory()
+        activationTask = Task { @MainActor [weak self] in
+            let imported = await Task.detached(priority:.userInitiated) {
+                Self.readImportedLUTs(directory)
+            }.value
+            guard let self else { return }
+            for lut in imported where !luts.contains(where:{$0.id == lut.id}) {luts.append(lut)}
+            finishActivation()
+            activationTask = nil
+        }
+    }
+
+    private func finishActivation() {
+        guard !bound else { return }
         bound = true
         observeLockedImports()
         restoreLibrary()
@@ -767,7 +783,6 @@ final class CameraStore {
         }
         startStorageUpdates()
 
-        loadImportedLUTs()
         restorePreserved()
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--verify-front-camera") {
@@ -926,7 +941,7 @@ final class CameraStore {
         updatePreviewLog()
 
         engine.setFrontCameraMirroring(mirrorFrontCamera)
-        engine.start()
+        if UIApplication.shared.applicationState == .active {engine.start()}
         framingChanged()
         engine.setExposureBias(exposure)
 
@@ -937,6 +952,7 @@ final class CameraStore {
             selectMode(.photo)
             Task {await engine.verifyFrontCamera()}
         }
+        if ProcessInfo.processInfo.arguments.contains("--verify-preview-fluidity") {verifyPreviewFluidity()}
         if ProcessInfo.processInfo.arguments.contains("--verify-style-sliders") {
             verifyStyleSliders()
         }
@@ -1049,7 +1065,7 @@ final class CameraStore {
                 log: logProfile,
                 dual: dualShot,
                 settings: effectiveRecordingSettings,
-                preferredCodec: force ? nil : selectedCodec
+                preferredCodec: force ? nil : selectedCodec, forceProbe: force
             )
         }
     }
@@ -1204,7 +1220,8 @@ final class CameraStore {
     }
 
     func selectMode(_ next: CaptureMode) {
-        guard !motionExposureActive else { return }
+        guard !motionExposureActive, next != mode else { return }
+        if next != .video {codecTask?.cancel()}
         cancelFocusPull()
         mode = next
         if next != .video { logProfile = .off }
@@ -3394,6 +3411,37 @@ final class CameraStore {
     }
 
     #if DEBUG
+    private func verifyPreviewFluidity() {
+        Task { @MainActor in
+            let original=currentShootingPreset(named:"Restore"), oldHistogram=showHistogram
+            UIApplication.shared.isIdleTimerDisabled=true
+            defer {applyShootingPreset(original);showHistogram=oldHistogram;UIApplication.shared.isIdleTimerDisabled=false}
+            try? await Task.sleep(for:.seconds(3))
+            stabilization = .auto;showHistogram=true
+            var gaps=[Double](), snapshots=[[String:Any]]()
+            let heartbeat=Task { @MainActor in
+                var last=ProcessInfo.processInfo.systemUptime
+                while !Task.isCancelled {
+                    try? await Task.sleep(for:.milliseconds(16))
+                    let now=ProcessInfo.processInfo.systemUptime;gaps.append(now-last);last=now
+                }
+            }
+            for mode in [CaptureMode.photo,.rangefinder,.video,.photo,.rangefinder,.video,.photo,.rangefinder,.photo] {
+                engine.beginSingleCadenceProbe()
+                selectMode(mode)
+                look = mode == .rangefinder ? (FilmLook.lineup.first {$0.id == "night35"} ?? .standard) : .standard
+                try? await Task.sleep(for:.seconds(2))
+                var snapshot=await engine.fluiditySnapshot();snapshot["mode"]=mode.rawValue;snapshot["cadence"]=await engine.reliabilitySnapshot();snapshots.append(snapshot)
+            }
+            heartbeat.cancel()
+            engine.endSingleCadenceProbe(label:"photo/mode fluidity")
+            let report:[String:Any]=["snapshots":snapshots,"maxMainHeartbeatMs":(gaps.max() ?? 0)*1000,"heartbeatCount":gaps.count]
+            let url=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("preview-fluidity-verification.json")
+            try? JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:url,options:.atomic)
+            NSLog("PREVIEW_FLUIDITY COMPLETE %@",String(describing:report))
+        }
+    }
+
     private func verifyStyleSliders() {
         Task { @MainActor in
             UIApplication.shared.isIdleTimerDisabled = true
@@ -3896,16 +3944,14 @@ final class CameraStore {
         }
     }
 
-    private struct ImportedLUT: Codable { var id: UUID; var name: String; var text: String }
+    private struct ImportedLUT: Codable, Sendable { var id: UUID; var name: String; var text: String }
 
-    private func loadImportedLUTs() {
-        guard let files = try? FileManager.default.contentsOfDirectory(at: lutDirectory(), includingPropertiesForKeys: nil) else { return }
-        for file in files where UUID(uuidString: file.lastPathComponent) != nil {
-            guard let data = try? Data(contentsOf: file),
-                  let saved = try? JSONDecoder().decode(ImportedLUT.self, from: data),
-                  let parsed = CubeLUT.parse(text: saved.text, name: saved.name),
-                  !luts.contains(where: { $0.id == saved.id }) else { continue }
-            luts.append(CubeLUT(id: saved.id, name: saved.name, size: parsed.size, data: parsed.data, isBuiltIn: false))
+    nonisolated private static func readImportedLUTs(_ directory: URL) -> [CubeLUT] {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else {return []}
+        return files.filter {UUID(uuidString:$0.lastPathComponent) != nil}.compactMap { file in
+            guard let data=try? Data(contentsOf:file),let saved=try? JSONDecoder().decode(ImportedLUT.self,from:data),
+                  let parsed=CubeLUT.parse(text:saved.text,name:saved.name) else {return nil}
+            return CubeLUT(id:saved.id,name:saved.name,size:parsed.size,data:parsed.data,isBuiltIn:false)
         }
     }
 

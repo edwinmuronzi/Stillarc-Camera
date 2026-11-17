@@ -54,7 +54,6 @@ struct CameraScreen: View {
                 store.activate()
                 store.resumeForegroundWork()
                 Task { await store.importLockedCaptures() }
-                store.engine.start()
             }
         }
         .modifier(CaptureButtonModifier(store: store))
@@ -65,7 +64,7 @@ struct CameraScreen: View {
             }
 
             if phase == .active {
-                if !store.reviewingCaptures {
+                if store.cameraActivated, !store.reviewingCaptures {
                     store.resumeForegroundWork()
                     store.engine.start()
                     store.refreshRecordingCodecs()

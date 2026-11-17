@@ -291,7 +291,7 @@ nonisolated final class CaptureEngine: NSObject,
     private var needsSessionRebuild = false
     var onLenses: (@Sendable ([LensOption], String?, Bool) -> Void)?
 
-    private let queue = DispatchQueue(label: "stillarc.capture")
+    private let queue = DispatchQueue(label: "stillarc.capture", qos: .userInitiated)
 
     private let photoOutput = AVCapturePhotoOutput()
     private let movieOutput = AVCaptureMovieFileOutput()
@@ -1043,7 +1043,10 @@ nonisolated final class CaptureEngine: NSObject,
     private func stabilize(_ connection: AVCaptureConnection, previewOnly: Bool = false) {
         guard connection.isVideoStabilizationSupported else { return }
         let previewMode: AVCaptureVideoStabilizationMode = videoStabilization == .off ? .off : .previewOptimized
-        let mode = !previewVideo ? AVCaptureVideoStabilizationMode.off : previewOnly && videoDevice?.activeFormat.isVideoStabilizationModeSupported(previewMode) == true ? previewMode : supported(videoStabilization)
+        let previewProxy = previewOnly || (connection === analysisOutput.connection(with: .video) && analysisOutput.deliversPreviewSizedOutputBuffers)
+        let mode: AVCaptureVideoStabilizationMode
+        if previewProxy, videoDevice?.activeFormat.isVideoStabilizationModeSupported(previewMode) == true { mode = previewMode }
+        else { mode = previewVideo ? supported(videoStabilization) : .off }
         if connection.preferredVideoStabilizationMode != mode {
             connection.preferredVideoStabilizationMode = mode
         }
@@ -1057,6 +1060,18 @@ nonisolated final class CaptureEngine: NSObject,
     }
 
     #if DEBUG
+    private var sessionBuildCount = 0
+    func fluiditySnapshot() async -> [String:Any] {
+        await withCheckedContinuation { c in queue.async { [self] in
+            let native = nativePreviewLayer?.connection
+            let analysis = analysisOutput.connection(with:.video)
+            c.resume(returning:["running":session.isRunning,"builds":sessionBuildCount,
+                "nativeStabilization":native?.activeVideoStabilizationMode.rawValue ?? -99,
+                "analysisStabilization":analysis?.activeVideoStabilizationMode.rawValue ?? -99,
+                "photoProxy":analysisOutput.deliversPreviewSizedOutputBuffers,
+                "thermal":ProcessInfo.processInfo.thermalState.rawValue])
+        }}
+    }
     func stabilizationSnapshot() async -> [String:Any] {
         await withCheckedContinuation { continuation in
             queue.async { [weak self] in
@@ -1490,6 +1505,7 @@ nonisolated final class CaptureEngine: NSObject,
             }
             self.motionExposureID = id
             self.syncAnalysisOutput()
+            self.refreshAnalysisSettings()
             guard self.session.outputs.contains(self.analysisOutput) else {
                 self.motionExposureID = nil
                 self.emit(.photo(id: id, processed: nil, raw: nil))
@@ -1519,6 +1535,7 @@ nonisolated final class CaptureEngine: NSObject,
             guard let self, self.motionExposureID == id else { return }
             self.motionExposureID = nil
             self.syncAnalysisOutput()
+            self.refreshAnalysisSettings()
             #if DEBUG
             if self.motionVerificationIDs.remove(id) != nil {
                 let size = data.flatMap { CIImage(data: $0)?.extent.size }
@@ -1726,18 +1743,18 @@ nonisolated final class CaptureEngine: NSObject,
         log: LogProfile,
         dual: Bool,
         settings: RecordingSettings = RecordingSettings(),
-        preferredCodec: RecordingCodec? = nil
+        preferredCodec: RecordingCodec? = nil, forceProbe: Bool = false
     ) {
         queue.async { [weak self] in
             guard let self else { return }
 
-            if self.movieOutput.isRecording || self.currentLiveWriter() != nil {
+            if !self.sessionWanted || !self.previewVideo || self.previewLog != log || self.movieOutput.isRecording || self.currentLiveWriter() != nil {
                 return
             }
 
             // A restored video setup already has its requested preview format.
             // Reuse its codecs instead of cycling pixel formats on screen.
-            if let device = self.videoDevice, let preferredCodec,
+            if !forceProbe, let device = self.videoDevice,
                self.previewVideo, self.previewLog == log,
                self.previewSettings?.resolution == settings.resolution,
                self.previewSettings?.frameRate == settings.frameRate,
@@ -1749,7 +1766,7 @@ nonisolated final class CaptureEngine: NSObject,
                     : subtype == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange ? .tenBit420 : .eightBit420
                 let probe = FormatProbe(group: group, format: device.activeFormat, codecs: self.safeCodecs(from: self.movieOutput))
                 let codecs = self.unionCodecs([probe], log: log)
-                if codecs.contains(preferredCodec) {
+                if !codecs.isEmpty && (preferredCodec == nil || codecs.contains(preferredCodec!)) {
                     self.cachedProbes = [probe]
                     self.cachedProbeKey = self.probeKey(log: log, settings: settings)
                     self.publishVideoOptions(log: log)
@@ -2314,6 +2331,9 @@ nonisolated final class CaptureEngine: NSObject,
     }
 
     private func rebuildSingle(commitRestart: Bool = true) {
+        #if DEBUG
+        sessionBuildCount += 1
+        #endif
         if session.isRunning {
             session.stopRunning()
         }
@@ -3909,6 +3929,10 @@ nonisolated final class CaptureEngine: NSObject,
         queue.async { [weak self] in
             guard let self else { return }
             let photoTransition = !video && (self.previewVideo || self.previewLog != .off)
+            let videoChanged = self.previewVideo != video
+            let formatChanged = videoChanged || self.previewLog != (video ? log : .off)
+                || self.previewSettings?.resolution != settings.resolution
+                || self.previewSettings?.frameRate != settings.frameRate || self.previewCodec != codec
             self.previewCodec = codec
             self.cameraAudio.setMetering(video)
             self.previewVideo = video
@@ -3928,6 +3952,11 @@ nonisolated final class CaptureEngine: NSObject,
                 self.session.commitConfiguration()
                 self.publishCaps()
             }
+            if video, formatChanged, self.videoDevice != nil,
+               !self.movieOutput.isRecording, self.currentLiveWriter() == nil, self.currentWriter() == nil {
+                self.applyPreviewFormat()
+            }
+            if videoChanged { self.refreshAnalysisSettings() }
             self.applyVideoStabilization()
         }
     }
@@ -4000,6 +4029,11 @@ nonisolated final class CaptureEngine: NSObject,
         }
         #endif
 
+        if usesPhotoPreviewProxy {
+            analysisApplied = (-2, -2)
+            return settings
+        }
+
         guard analysisUnscaled == false,
               let device = videoDevice else {
             analysisApplied = (0, 0)
@@ -4044,6 +4078,21 @@ nonisolated final class CaptureEngine: NSObject,
         return settings
     }
 
+    private var usesPhotoPreviewProxy: Bool { !previewVideo && !dualPreview && motionExposureID == nil }
+
+    private func configureAnalysisBuffers(_ settings: [String: Any]) {
+        analysisOutput.automaticallyConfiguresOutputBufferDimensions = false
+        if usesPhotoPreviewProxy {
+            // Clear custom dimensions before enabling Apple's proxy; combining
+            // explicit dimensions with preview-sized delivery throws an exception.
+            analysisOutput.videoSettings = settings.filter { $0.key != kCVPixelBufferWidthKey as String && $0.key != kCVPixelBufferHeightKey as String }
+            analysisOutput.deliversPreviewSizedOutputBuffers = true
+        } else {
+            analysisOutput.deliversPreviewSizedOutputBuffers = false
+            analysisOutput.videoSettings = settings
+        }
+    }
+
     // Re-applies the size after the camera format changed.
     private func refreshAnalysisSettings() {
         guard session.outputs.contains(analysisOutput) else { return }
@@ -4056,7 +4105,8 @@ nonisolated final class CaptureEngine: NSObject,
         beginScaleTrial()
 
         session.beginConfiguration()
-        analysisOutput.videoSettings = next
+        configureAnalysisBuffers(next)
+        applyVideoStabilization()
         session.commitConfiguration()
     }
 
@@ -4182,7 +4232,7 @@ nonisolated final class CaptureEngine: NSObject,
         analysisOutput.deliversPreviewSizedOutputBuffers = false
 
         beginScaleTrial()
-        analysisOutput.videoSettings = analysisSettings()
+        configureAnalysisBuffers(analysisSettings())
 
         analysisOutput.setSampleBufferDelegate(self, queue: analysisQueue)
 
@@ -4255,7 +4305,7 @@ nonisolated final class CaptureEngine: NSObject,
                 let now = CFAbsoluteTimeGetCurrent()
 
                 monitorLock.lock()
-                let free = monitorBusy == false && now - lastMonitor >= 0.02
+                let free = monitorBusy == false && now - lastMonitor >= 1.0 / 30.0
 
                 if free {
                     monitorBusy = true
@@ -4325,7 +4375,7 @@ nonisolated final class CaptureEngine: NSObject,
             }
         }
 
-        if monitorActive, !usesLivePreview, now - lastMonitor >= 0.02 {
+        if monitorActive, !usesLivePreview, now - lastMonitor >= 1.0 / 30.0 {
             lastMonitor = now
             renderMonitor(buffer)
         }

@@ -326,3 +326,5 @@ Look studio → Share colour with Studio now produces a `.stillarclook` package.
 ### Steadier video
 
 Video stabilization now follows native, live-look and Log recording streams, and is reapplied after lens and format changes. Settings → Shooting → Stabilization → Auto prefers Apple’s low-latency stabilization, with a small crop. Off preserves the widest view; Standard offers lighter correction; Cinematic and Extreme select a fixed stronger mode when supported. Very high zoom still magnifies hand movement.
+
+Photo and Rangefinder previews also use supported preview stabilization, including live styles. Preview proxies do not replace full-resolution still captures. Startup parses imported LUTs off the UI thread, gallery restoration uses indexed merging, and ordinary mode changes reuse the existing camera session where supported.

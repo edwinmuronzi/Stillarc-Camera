@@ -141,13 +141,19 @@ extension CameraStore {
                     return (item, grade, record.edit)
                 }
             }.value
-            for (item, grade, edit) in loaded where !captures.contains(where: { $0.id == item.id }) {
-                captures.append(item)
-                if records.first(where:{ $0.id == item.id })?.recoveryCopy == true { protectedCaptureIDs.insert(item.id) }
+            // Merge once with constant-time lookups; large libraries previously
+            // rescanned every capture and archive record for each restored item.
+            let metadata = Dictionary(records.map {($0.id,$0)}, uniquingKeysWith:{first,_ in first})
+            var known = Set(captures.map(\.id))
+            var restored = [CaptureItem]()
+            for (item, grade, edit) in loaded where known.insert(item.id).inserted {
+                restored.append(item)
+                if metadata[item.id]?.recoveryCopy == true { protectedCaptureIDs.insert(item.id) }
                 if let grade { graded[AnyHashable(item.id)] = grade }
                 if let edit { photoEdits[item.id] = edit }
-                if let info = records.first(where: { $0.id == item.id })?.clip { clipInfo[AnyHashable(item.id)] = info }
+                if let info = metadata[item.id]?.clip { clipInfo[AnyHashable(item.id)] = info }
             }
+            captures.append(contentsOf:restored)
             captures.sort { $0.date > $1.date }
             libraryReady = true
             if libraryDirty { libraryDirty = false; persistLibrary() }

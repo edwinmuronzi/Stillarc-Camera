@@ -1,0 +1,186 @@
+{
+  "heartbeatCount" : 1050,
+  "maxMainHeartbeatMs" : 47.112083353567868,
+  "snapshots" : [
+    {
+      "analysisStabilization" : 4,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 1,
+        "fps" : 30,
+        "lens" : 1,
+        "monitorFrames" : 0,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 4,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "photo",
+      "nativeStabilization" : 4,
+      "photoProxy" : true,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 4,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 1,
+        "fps" : 30,
+        "lens" : 1,
+        "monitorFrames" : 30,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 33,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "rangefinder",
+      "nativeStabilization" : 4,
+      "photoProxy" : true,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 2,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 0,
+        "fps" : 60,
+        "lens" : 1,
+        "monitorFrames" : 0,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 45,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "video",
+      "nativeStabilization" : 4,
+      "photoProxy" : false,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 4,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 1,
+        "fps" : 30,
+        "lens" : 1,
+        "monitorFrames" : 0,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 44,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "photo",
+      "nativeStabilization" : 4,
+      "photoProxy" : true,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 4,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 1,
+        "fps" : 30,
+        "lens" : 1,
+        "monitorFrames" : 30,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 30,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "rangefinder",
+      "nativeStabilization" : 4,
+      "photoProxy" : true,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 2,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 0,
+        "fps" : 60,
+        "lens" : 1,
+        "monitorFrames" : 0,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 45,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "video",
+      "nativeStabilization" : 4,
+      "photoProxy" : false,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 4,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 1,
+        "fps" : 30,
+        "lens" : 1,
+        "monitorFrames" : 0,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 44,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "photo",
+      "nativeStabilization" : 4,
+      "photoProxy" : true,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 4,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 1,
+        "fps" : 30,
+        "lens" : 1,
+        "monitorFrames" : 30,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 30,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "rangefinder",
+      "nativeStabilization" : 4,
+      "photoProxy" : true,
+      "running" : true,
+      "thermal" : 1
+    },
+    {
+      "analysisStabilization" : 4,
+      "builds" : 1,
+      "cadence" : {
+        "colorSpace" : 1,
+        "fps" : 30,
+        "lens" : 1,
+        "monitorFrames" : 0,
+        "monitorSteadyGapMs" : 0,
+        "running" : true,
+        "sourceFrames" : 30,
+        "thermal" : 1,
+        "virtual" : true
+      },
+      "mode" : "photo",
+      "nativeStabilization" : 4,
+      "photoProxy" : true,
+      "running" : true,
+      "thermal" : 1
+    }
+  ]
+}
