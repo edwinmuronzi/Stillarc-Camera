@@ -1065,7 +1065,13 @@ nonisolated final class CaptureEngine: NSObject,
         await withCheckedContinuation { c in queue.async { [self] in
             let native = nativePreviewLayer?.connection
             let analysis = analysisOutput.connection(with:.video)
+            let d = videoDevice
+            let actual = d.map { device in
+                device.isVirtualDevice ? Double(device.videoZoomFactor * device.displayVideoZoomFactorMultiplier)
+                    : lensZoom / max(lensCrop,0.001) * Double(device.videoZoomFactor / device.minAvailableVideoZoomFactor)
+            } ?? 0
             c.resume(returning:["running":session.isRunning,"builds":sessionBuildCount,
+                "actualDisplayedZoom":actual,"expectedDisplayedZoom":lensZoom * (framingRangefinder ? 1 : framingZoom),
                 "nativeStabilization":native?.activeVideoStabilizationMode.rawValue ?? -99,
                 "analysisStabilization":analysis?.activeVideoStabilizationMode.rawValue ?? -99,
                 "photoProxy":analysisOutput.deliversPreviewSizedOutputBuffers,
@@ -3423,6 +3429,7 @@ nonisolated final class CaptureEngine: NSObject,
 
         applyVideoStabilization()
         session.commitConfiguration()
+        if applied { applyFraming() }
 
         if applied, log != .off, device.activeColorSpace != target {
             print("STILLARC: \(log.title) did not activate on this format.")
@@ -3950,6 +3957,7 @@ nonisolated final class CaptureEngine: NSObject,
                 }
                 self.synchronizePhotoDimensions()
                 self.session.commitConfiguration()
+                self.applyFraming()
                 self.publishCaps()
             }
             if video, formatChanged, self.videoDevice != nil,

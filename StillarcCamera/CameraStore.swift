@@ -952,6 +952,7 @@ final class CameraStore {
             selectMode(.photo)
             Task {await engine.verifyFrontCamera()}
         }
+        if ProcessInfo.processInfo.arguments.contains("--verify-mode-framing") {verifyModeFraming()}
         if ProcessInfo.processInfo.arguments.contains("--verify-preview-fluidity") {verifyPreviewFluidity()}
         if ProcessInfo.processInfo.arguments.contains("--verify-style-sliders") {
             verifyStyleSliders()
@@ -3411,6 +3412,35 @@ final class CameraStore {
     }
 
     #if DEBUG
+    private func verifyModeFraming() {
+        Task { @MainActor in
+            let original=currentShootingPreset(named:"Restore")
+            UIApplication.shared.isIdleTimerDisabled=true
+            defer {applyShootingPreset(original);UIApplication.shared.isIdleTimerDisabled=false}
+            try? await Task.sleep(for:.seconds(3))
+            if isFrontCamera {flip();try? await Task.sleep(for:.seconds(1))}
+            look = .standard;selectedLUT=nil;dualShot=false;logProfile = .off
+            setZoom(log:0)
+            var results=[[String:Any]]()
+            for zoom in [1.0,2,4,8,0.5] {
+                guard let lens=lenses.min(by:{abs($0.zoom-zoom)<abs($1.zoom-zoom)}) else {continue}
+                selectLens(lens);try? await Task.sleep(for:.milliseconds(1250))
+                for mode in [CaptureMode.photo,.video,.photo,.rangefinder,.video,.rangefinder] {
+                    selectMode(mode);try? await Task.sleep(for:.milliseconds(1100))
+                    var result=await engine.fluiditySnapshot()
+                    let actual=result["actualDisplayedZoom"] as? Double ?? 0, expected=result["expectedDisplayedZoom"] as? Double ?? -1
+                    result["mode"]=mode.rawValue;result["selectedZoom"]=zoom
+                    result["passed"]=abs(actual-expected)<max(0.02,expected*0.015) && result["running"] as? Bool == true
+                    results.append(result)
+                }
+            }
+            let report:[String:Any]=["passed":results.count==30 && results.allSatisfy {$0["passed"] as? Bool == true},"results":results]
+            let url=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("mode-framing-verification.json")
+            try? JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]).write(to:url,options:.atomic)
+            NSLog("MODE_FRAMING COMPLETE %@",String(describing:report))
+        }
+    }
+
     private func verifyPreviewFluidity() {
         Task { @MainActor in
             let original=currentShootingPreset(named:"Restore"), oldHistogram=showHistogram

@@ -143,3 +143,9 @@ Photo/Rangefinder native preview uses preview-optimized stabilization when suppo
 Imported LUT JSON decoding and cube parsing finish off the main actor before the preserved session is applied. Initial camera startup occurs once after restoration; scene activation must not start the empty session early. Gallery restoration merges with indexed lookups and one capture-array append. Video preview format changes apply to the retained input, and codec discovery can reuse the active format before a codec is selected; explicit force probes still enumerate formats. Ignore obsolete codec queries outside Video/backgrounded capture.
 
 `--verify-preview-fluidity` checks nine Photo/Rangefinder/Video transitions with Standard and 35mm Night previews, main-actor heartbeat gaps, fresh source/monitor frame counts, session rebuild count, stabilization mode and thermal state. Results are Documents/preview-fluidity-verification.json. Follow with `--verify-photo-burst` and `--verify-motion-exposure` to check full capture/motion paths. Hardware tests measure bounded cases, not a guarantee of no stutter on all devices.
+
+## 1.3.13 — mode framing preservation
+
+Reapply the engine's selected lens/framing zoom after committing the Photo preset and after committing an explicit video format. AVFoundation can reset hardware videoZoomFactor during these transitions; applying the zoom only before the preset change leaves a virtual rear camera at its ultrawide minimum. Keep the input/session alive and recompute the factor using the new format's display multiplier and limits.
+
+`--verify-mode-framing` checks actual displayed hardware zoom, not only lens-choice metadata, across 30 Photo/Video/Rangefinder states at 0.5×/1×/2×/4×/8×. The report is Documents/mode-framing-verification.json. It restores the saved shooting setup and writes no photos or movies.
